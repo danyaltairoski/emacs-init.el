@@ -38,7 +38,9 @@
 (tooltip-mode -1)
 (menu-bar-mode -1)
 (set-fringe-mode 10)
-(set-face-attribute 'default nil :height 160)
+(set-face-attribute 'default nil
+  :family "Menlo"
+  :height 160)
 
 (column-number-mode)
 (global-display-line-numbers-mode t)
@@ -147,10 +149,10 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (use-package org
   :config
   (setq org-directory "~/Desktop/org")
-  (setq org-agenda-files '("~/Desktop/org/todo.org"
-                           "~/Desktop/org/school.org"
-                           "~/Desktop/org/calendar.org"
-                           "~/Desktop/org/dailyplan.org"))
+  (setq org-agenda-files '("~/Desktop/org/04-areas.org"
+                           "~/Desktop/org/07-school.org"
+                           "~/Desktop/org/08-calendar.org"
+                           "~/Desktop/org/01-today.org"))
   (setq org-startup-indented t
         org-hide-leading-stars t
         org-pretty-entities t
@@ -165,13 +167,8 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
         '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)" "CANCELLED(c)")))
 
   (setq org-capture-templates
-        '(("c" "Capture" entry (file "~/Desktop/org/refile.org")
+        '(("c" "Capture" entry (file "~/Desktop/org/00-refile.org")
            "* %?\n  %U\n  %a")))
-
-  (setq org-agenda-custom-commands
-        '(("d" "Dailyplan TODOs"
-           todo ""
-           ((org-agenda-files '("~/Desktop/org/dailyplan.org"))))))
 
   (global-set-key (kbd "C-c n a") 'org-agenda)
   (global-set-key (kbd "C-c n n") 'org-capture)
@@ -211,9 +208,9 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 
 
 (setq org-refile-targets
-      '(("~/Desktop/org/todo.org"      :maxlevel . 2)
-        ("~/Desktop/org/resources.org" :maxlevel . 2)
-        ("~/Desktop/org/shopping.org"  :maxlevel . 1)))
+      '(("~/Desktop/org/04-areas.org"      :maxlevel . 2)
+        ("~/Desktop/org/05-resources.org" :maxlevel . 2)
+	 ("~/Desktop/org/06-archives.org" :maxlevel . 2)))
 
 
 
@@ -287,10 +284,6 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 
 ;; Treemacs
 (use-package treemacs
-  :ensure t)
-
-;; VTerm
-(use-package vterm
   :ensure t)
 
 (use-package lsp-ivy)
@@ -389,3 +382,14 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (setq TeX-auto-save t)
 (setq TeX-parse-self t)
 (setq-default TeX-master nil) ;; query for master file
+
+(with-eval-after-load 'pdf-view
+  (define-key pdf-view-mode-map (kbd "g")
+    (lambda ()
+      (interactive)
+      (let ((revert-without-query '(".*")))
+        (pdf-view-revert-buffer nil t)))))
+
+(setq org-blank-before-new-entry '((heading . nil) (plain-list-item . nil)))
+
+(setq org-hide-emphasis-markers t)
