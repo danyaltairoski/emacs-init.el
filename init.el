@@ -393,3 +393,9 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (setq org-blank-before-new-entry '((heading . nil) (plain-list-item . nil)))
 
 (setq org-hide-emphasis-markers t)
+
+(global-set-key (kbd "C-z") #'toggle-frame-maximized)
+
+(global-set-key (kbd "C-c l") #'org-store-link)
+
+(add-hook 'org-mode-hook #'visual-line-mode)
