@@ -199,39 +199,56 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 
 (font-lock-add-keywords 'org-mode '((my/org-fontify-drawer-lists)))
 
-(defun my/org-C-RET-smart (&optional arg)
-  "Smart C-RET in Org.
+(require 'subr-x) ;; for string-trim-right
 
-- If point is in a plain list item: insert a new sibling item at same level.
-- If the current item has a checkbox, ensure the new item has an unchecked checkbox [ ].
-  Place point right after the checkbox (after \"[ ] \").
-- Otherwise (not in a list item): insert a new heading (respecting content).
-  If the previous line had a TODO keyword, carry it over."
+(defun my/org-insert-list-sibling-after-subtree (&optional _arg)
+  "Insert a NEW sibling list item after the current item's subtree.
+
+Exact formats:
+- Plain item:    \"- ␠|...\"
+- Checkbox item: \"- ␠[␠]␠|...\"
+
+Also inserts on its own line (won't collide with headings)."
+  (require 'org)
+  (require 'org-list)
+  (let* ((item-beg (save-excursion (org-beginning-of-item) (point)))
+         (struct   (org-list-struct))
+         (indent   (org-list-get-ind item-beg struct))
+         ;; IMPORTANT: bullet sometimes includes trailing space -> trim it.
+         (bullet   (string-trim-right (org-list-get-bullet item-beg struct)))
+         (had-checkbox (save-excursion
+                         (goto-char item-beg)
+                         (org-at-item-checkbox-p)))
+         (item-end (org-list-get-item-end item-beg struct))
+         (prefix (concat (make-string indent ?\s) bullet " "))
+         (line   (concat prefix (if had-checkbox "[ ] " ""))))
+    ;; Go to end of subtree and start on a fresh line
+    (goto-char item-end)
+    (unless (bolp) (end-of-line))
+    (unless (bolp) (insert "\n"))
+
+    ;; Insert the new item line + newline
+    (insert line "\n")
+
+    ;; Put point exactly where you want it
+    (forward-line -1)
+    (move-to-column (+ indent (length bullet) 1 (if had-checkbox 4 0)) t)
+
+    ;; Repair numbering if ordered list
+    (when (string-match-p "^[0-9]" bullet)
+      (ignore-errors (org-list-repair)))))
+
+(defun my/org-C-RET-smart (&optional arg)
+  "C-RET:
+- In list items: insert sibling after subtree (exact spacing/cursor).
+- Otherwise: keep Org heading behavior (carry TODO)."
   (interactive "P")
   (require 'org)
   (if (org-in-item-p)
-      (let ((had-checkbox (org-at-item-checkbox-p)))
-        ;; Make sure we're on the item's line before inserting
-        (end-of-line)
-        (org-insert-item)
-        ;; Now we're on the new item.
-        (when had-checkbox
-          (beginning-of-line)
-          ;; If no checkbox exists on the new item, insert "[ ] "
-          (unless (looking-at-p "^[ \t]*[-+*][ \t]+\\(\\[[ Xx-]\\][ \t]+\\)")
-            (re-search-forward "^[ \t]*[-+*][ \t]+" (line-end-position) t)
-            (insert "[ ] "))
-          ;; Force it to be unchecked (in case Org inserted a checked one)
-          (when (re-search-forward "\\[[ Xx-]\\]" (line-end-position) t)
-            (replace-match "[ ]" t t))
-          ;; Put point after "[ ] "
-          (beginning-of-line)
-          (re-search-forward "\\[ \\][ \t]*" (line-end-position) t)))
+      (my/org-insert-list-sibling-after-subtree arg)
     (let ((prev-todo (org-get-todo-state)))
       (org-insert-heading-respect-content arg)
-      (when prev-todo
-        (org-todo prev-todo)))))
-
+      (when prev-todo (org-todo prev-todo)))))
 
 (setq org-refile-targets
       '(("~/Desktop/org/00-refile.org"      :maxlevel . 1)
