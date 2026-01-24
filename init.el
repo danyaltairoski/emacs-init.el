@@ -151,7 +151,7 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
   (setq org-directory "~/Desktop/org")
   (setq org-agenda-files '("~/Desktop/org/04-areas.org"
                            "~/Desktop/org/07-school.org"
-                           "~/Desktop/org/08-calendar.org"
+                           "~/Desktop/org/09-calendar.org"
                            "~/Desktop/org/01-today.org"))
   (setq org-startup-indented t
         org-hide-leading-stars t
@@ -166,9 +166,11 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
   (setq org-todo-keywords
         '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)" "CANCELLED(c)")))
 
-  (setq org-capture-templates
-        '(("c" "Capture" entry (file "~/Desktop/org/00-refile.org")
-           "* %?\n  %U\n  %a")))
+(setq org-capture-templates
+      '(("c" "Capture" entry
+         (file "~/Desktop/org/00-refile.org")
+         "* %?\n%U\n%a")))
+
 
   (global-set-key (kbd "C-c n a") 'org-agenda)
   (global-set-key (kbd "C-c n n") 'org-capture)
@@ -198,19 +200,48 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (font-lock-add-keywords 'org-mode '((my/org-fontify-drawer-lists)))
 
 (defun my/org-C-RET-smart (&optional arg)
-  "Smart C-RET: insert list bullet or heading with TODO carryover."
+  "Smart C-RET in Org.
+
+- If point is in a plain list item: insert a new sibling item at same level.
+- If the current item has a checkbox, ensure the new item has an unchecked checkbox [ ].
+  Place point right after the checkbox (after \"[ ] \").
+- Otherwise (not in a list item): insert a new heading (respecting content).
+  If the previous line had a TODO keyword, carry it over."
   (interactive "P")
+  (require 'org)
   (if (org-in-item-p)
-      (progn (end-of-line) (org-insert-item) (end-of-line))
+      (let ((had-checkbox (org-at-item-checkbox-p)))
+        ;; Make sure we're on the item's line before inserting
+        (end-of-line)
+        (org-insert-item)
+        ;; Now we're on the new item.
+        (when had-checkbox
+          (beginning-of-line)
+          ;; If no checkbox exists on the new item, insert "[ ] "
+          (unless (looking-at-p "^[ \t]*[-+*][ \t]+\\(\\[[ Xx-]\\][ \t]+\\)")
+            (re-search-forward "^[ \t]*[-+*][ \t]+" (line-end-position) t)
+            (insert "[ ] "))
+          ;; Force it to be unchecked (in case Org inserted a checked one)
+          (when (re-search-forward "\\[[ Xx-]\\]" (line-end-position) t)
+            (replace-match "[ ]" t t))
+          ;; Put point after "[ ] "
+          (beginning-of-line)
+          (re-search-forward "\\[ \\][ \t]*" (line-end-position) t)))
     (let ((prev-todo (org-get-todo-state)))
       (org-insert-heading-respect-content arg)
-      (when prev-todo (org-todo prev-todo)))))
+      (when prev-todo
+        (org-todo prev-todo)))))
 
 
 (setq org-refile-targets
-      '(("~/Desktop/org/04-areas.org"      :maxlevel . 2)
-        ("~/Desktop/org/05-resources.org" :maxlevel . 2)
-	 ("~/Desktop/org/06-archives.org" :maxlevel . 2)))
+      '(("~/Desktop/org/00-refile.org"      :maxlevel . 1)
+	("~/Desktop/org/01-today.org"      :maxlevel . 3)
+	("~/Desktop/org/03-projects.org"      :maxlevel . 2)
+	("~/Desktop/org/04-areas.org"      :maxlevel . 2)
+        ("~/Desktop/org/05-resources.org" :maxlevel . 4)
+	("~/Desktop/org/06-archives.org" :maxlevel . 2)
+	("~/Desktop/org/07-school.org"      :maxlevel . 3)
+	("~/Desktop/org/08-shopping.org"      :maxlevel . 2)))
 
 
 
@@ -399,3 +430,184 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (global-set-key (kbd "C-c l") #'org-store-link)
 
 (add-hook 'org-mode-hook #'visual-line-mode)
+
+;; Keep checklist mode when making new list items.
+(setq org-list-automatic-checkbox t)
+
+;; shortcut to minimize emacs frame
+(global-set-key (kbd "C-c m") #'iconify-frame)
+
+;; org alerts for macos notifications (date-aware, :alert: only)
+(use-package alert
+  :ensure t
+  :config
+  (alert-define-style 'macos-test
+    :title "macOS Notification"
+    :notifier
+    (lambda (info)
+      (when (fboundp 'ns-do-applescript)
+        (let* ((raw-msg   (or (plist-get info :message) ""))
+               (raw-title (or (plist-get info :title) "Emacs"))
+
+               ;; Strip text properties + force plain strings
+               (msg   (substring-no-properties (format "%s" raw-msg)))
+               (title (substring-no-properties (format "%s" raw-title)))
+
+               ;; Remove newlines (AppleScript can choke on them)
+               (msg   (replace-regexp-in-string "[\r\n]+" " " msg))
+               (title (replace-regexp-in-string "[\r\n]+" " " title))
+
+               ;; Quote safely for AppleScript
+               (msgq   (prin1-to-string msg))
+               (titleq (prin1-to-string title))
+
+               ;; Build the AppleScript as a *binding*
+               (script (format "display notification %s with title %s sound name %s"
+                               msgq titleq (prin1-to-string "Glass"))))
+          (condition-case err
+              (ns-do-applescript script)
+            (error
+             (message "AppleScript notify failed: %S" err)
+             (message "AppleScript was:\n%s" script))))))
+
+  (setq alert-default-style 'macos-test)))
+
+(use-package org-alert
+  :ensure t
+  :after org
+  :config
+  ;; knobs you already use
+  (setq org-alert-interval 600
+        org-alert-notify-cutoff 10
+        org-alert-notify-after-event-cutoff 10)
+
+  ;; -------------------------
+  ;; Date-aware :alert: checker
+  ;; -------------------------
+
+  (defun danyal/org-alert--collect-timed-timestamps ()
+  "Return a list of timestamp strings in the current entry subtree that contain HH:MM."
+  (save-excursion
+    (org-back-to-heading t)
+    (let* ((end (save-excursion (org-end-of-subtree t t)))
+           (out '()))
+      (while (re-search-forward
+              "<[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}[^>]*\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)[^>]*>"
+              end t)
+        (push (match-string 0) out))
+      (nreverse out))))
+
+(defun danyal/org-alert--timestamp-next-time (ts now)
+  "Given an org timestamp string TS (may include a repeater), return the next occurrence >= NOW as an Emacs time.
+If TS has no repeater, return its absolute time."
+  (let* ((t0 (org-time-string-to-time ts)))
+    ;; If there's no repeater, nothing to expand.
+    (if (not (string-match-p "\\+[0-9]+[hdwmy]" ts))
+        t0
+      ;; Has repeater: advance by the repeater interval until >= now.
+      ;; Supports +Nh, +Nd, +Nw, +Nm, +Ny (h/d/w/m/y).
+      (let* ((n (string-to-number (replace-regexp-in-string ".*\\+\\([0-9]+\\)\\([hdwmy]\\).*" "\\1" ts)))
+             (u (replace-regexp-in-string ".*\\+\\([0-9]+\\)\\([hdwmy]\\).*" "\\2" ts))
+             ;; Convert units to seconds (month/year handled approximately via days; good enough for weekly repeaters).
+             (step
+              (pcase u
+                ("h" (* n 3600))
+                ("d" (* n 86400))
+                ("w" (* n 7 86400))
+                ("m" (* n 30 86400))  ;; approximate
+                ("y" (* n 365 86400)) ;; approximate
+                (_ (* n 7 86400))))
+             (cur (float-time t0))
+             (nowf (float-time now))
+             (guard 0))
+        (while (and (< cur nowf) (< guard 5000))
+          (setq cur (+ cur step))
+          (setq guard (1+ guard)))
+        (seconds-to-time cur)))))
+
+(defun danyal/org-alert--entry-time ()
+  "Return the next due time (absolute date+time) for this entry, or nil.
+
+Priority:
+1) SCHEDULED
+2) DEADLINE
+3) plain timestamps in subtree
+
+Repeaters (+1w etc.) are expanded to the next occurrence >= now.
+If multiple plain timestamps exist, choose the earliest upcoming occurrence."
+  (let* ((now (current-time))
+         (scheduled (org-entry-get nil "SCHEDULED"))
+         (deadline  (org-entry-get nil "DEADLINE")))
+    (cond
+     (scheduled
+      (ignore-errors (danyal/org-alert--timestamp-next-time scheduled now)))
+     (deadline
+      (ignore-errors (danyal/org-alert--timestamp-next-time deadline now)))
+     (t
+      (let* ((ts-list (danyal/org-alert--collect-timed-timestamps))
+             (times (delq nil
+                          (mapcar (lambda (ts)
+                                    (ignore-errors (danyal/org-alert--timestamp-next-time ts now)))
+                                  ts-list))))
+        (when times
+          ;; pick earliest upcoming time
+          (car (sort times (lambda (a b)
+                             (< (float-time a) (float-time b)))))))))))
+
+  (defun danyal/org-alert--check-file (file now cutoff after)
+    "Scan FILE for +alert headings and send notifications if within window."
+    (with-current-buffer (find-file-noselect file t)
+      (org-with-wide-buffer
+        (org-map-entries
+         (lambda ()
+           (let ((tval (danyal/org-alert--entry-time)))
+             (when tval
+               (let* ((diff-min (/ (float-time (time-subtract tval now)) 60.0))
+                      (within (and (<= diff-min cutoff)
+                                   (>= diff-min (- after)))))
+                 (when within
+                   (alert (org-get-heading t t t t)
+                          :title (or (bound-and-true-p org-alert-notification-title) "org")
+                          :category (or (bound-and-true-p org-alert-notification-category) 'org-alert)
+                          :style 'macos-test))))))
+         "+alert" 'file))))
+
+  (defun danyal/org-alert-check ()
+    "Alert :alert: headlines using absolute date+time comparison (no agenda cache)."
+    (interactive)
+    (let* ((now (current-time))
+           (cutoff (or org-alert-notify-cutoff 10))
+           (after  (or org-alert-notify-after-event-cutoff 0))
+           (files (org-agenda-files)))
+      (dolist (f files)
+        (when (and (stringp f) (file-readable-p f))
+          (danyal/org-alert--check-file f now cutoff after)))))
+
+  (defvar danyal/org-alert--timer nil
+    "Timer for date-aware org alerts.")
+
+  (defun danyal/org-alert-enable ()
+    "Enable periodic date-aware :alert: checks."
+    (interactive)
+    (when (timerp danyal/org-alert--timer)
+      (cancel-timer danyal/org-alert--timer))
+    (setq danyal/org-alert--timer
+          (run-at-time 1 (or org-alert-interval 600) #'danyal/org-alert-check)))
+
+  (defun danyal/org-alert-disable ()
+    "Disable periodic date-aware :alert: checks."
+    (interactive)
+    (when (timerp danyal/org-alert--timer)
+      (cancel-timer danyal/org-alert--timer))
+    (setq danyal/org-alert--timer nil))
+
+  ;; Stop org-alert's built-in timer if it was enabled elsewhere
+  (when (fboundp 'org-alert-disable)
+    (ignore-errors (org-alert-disable)))
+
+  ;; Start the date-aware checker
+  (danyal/org-alert-enable))
+
+;; Hide lockfiles like .#07-school.org and autosaves like #07-school.org#
+(setq counsel-find-file-ignore-regexp
+      "\\(?:\\`\\.#\\|\\`#.*#\\'\\)")
