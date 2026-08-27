@@ -13,14 +13,14 @@
    '("/Users/deechay/Desktop/org/school.org"
      "/Users/deechay/Desktop/org/calendar.org"))
  '(package-selected-packages
-   '(all-the-icons auctex auto-dark command-log-mode company-box
-		   counsel-projectile csv-mode doom-modeline
-		   doom-themes emmet-mode exec-path-from-shell
-		   flycheck ivy-rich js2-mode json-mode lsp-ivy
-		   lsp-treemacs lsp-ui magit org-bullets pdf-tools
-		   persp-mode persp-projectile prettier-js
-		   rainbow-delimiters riscv-mode visual-fill-column
-		   vterm web-mode xwwp-follow-link-ivy)))
+   '(alert all-the-icons auctex auto-dark command-log-mode company-box
+	   counsel-projectile csv-mode doom-modeline doom-themes
+	   emmet-mode exec-path-from-shell flycheck ivy-rich js2-mode
+	   json-mode lsp-ivy lsp-treemacs lsp-ui magit
+	   makefile-executor org-alert org-bullets pdf-tools
+	   persp-mode persp-projectile prettier-js rainbow-delimiters
+	   riscv-mode visual-fill-column vterm web-mode
+	   xwwp-follow-link-ivy)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
