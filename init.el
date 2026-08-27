@@ -39,8 +39,7 @@
 (menu-bar-mode -1)
 (set-fringe-mode 10)
 (set-face-attribute 'default nil
-  :family "Menlo"
-  :height 160)
+  :height 140)
 
 (column-number-mode)
 (global-display-line-numbers-mode t)
@@ -70,41 +69,32 @@
 (setq use-package-always-ensure t)
 
 ;;------------------------------------------------------------------------------
-;; Appearance (Themes & Modeline)
+;; Appearance (Themes)
 ;;------------------------------------------------------------------------------
 
-(use-package all-the-icons
-  :if (display-graphic-p))
-
-(use-package doom-themes
-  :config
-  (load-theme 'doom-one-light t))
-
-(use-package doom-modeline
-  :init (doom-modeline-mode 1)
-  :custom ((doom-modeline-height 15)))
+(load-theme 'tango t)
 
 ;; Auto theme switching on macOS
-(defvar my/macos-last-dark-mode nil "Last detected macOS dark mode state.")
+;; (defvar my/macos-last-dark-mode nil "Last detected macOS dark mode state.")
 
-(defun my/macos-dark-mode-p ()
-  "Return t if macOS is in dark mode."
-  (string= "true"
-           (string-trim
-            (shell-command-to-string
-             "osascript -e 'tell application \"System Events\" \
-to tell appearance preferences to get dark mode' 2>/dev/null"))))
+;; (defun my/macos-dark-mode-p ()
+;;   "Return t if macOS is in dark mode."
+;;   (string= "true"
+;;            (string-trim
+;;             (shell-command-to-string
+;;              "osascript -e 'tell application \"System Events\" \
+;; to tell appearance preferences to get dark mode' 2>/dev/null"))))
 
-(defun my/macos-theme-sync ()
-  "Load Doom theme based on macOS dark/light appearance."
-  (let ((dark-mode (my/macos-dark-mode-p)))
-    (unless (eq dark-mode my/macos-last-dark-mode)
-      (mapc #'disable-theme custom-enabled-themes)
-      (load-theme (if dark-mode 'doom-one 'doom-one-light) t)
-      (setq my/macos-last-dark-mode dark-mode))))
+;; (defun my/macos-theme-sync ()
+;;   "Load Doom theme based on macOS dark/light appearance."
+;;   (let ((dark-mode (my/macos-dark-mode-p)))
+;;     (unless (eq dark-mode my/macos-last-dark-mode)
+;;       (mapc #'disable-theme custom-enabled-themes)
+;;       (load-theme (if dark-mode 'doom-one 'doom-one-light) t)
+;;       (setq my/macos-last-dark-mode dark-mode))))
 
-(my/macos-theme-sync)
-(run-with-timer 0 10 #'my/macos-theme-sync)
+;; (my/macos-theme-sync)
+;; (run-with-timer 0 10 #'my/macos-theme-sync)
 
 ;;------------------------------------------------------------------------------
 ;; Completion & Navigation
@@ -149,13 +139,13 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
 (use-package org
   :config
   (setq org-directory "~/Desktop/org")
-  (setq org-agenda-files '("~/Desktop/org/04-areas.org"
-                           "~/Desktop/org/07-school.org"
-                           "~/Desktop/org/09-calendar.org"
+  (setq org-agenda-files '("~/Desktop/org/03-areas.org"
+                           "~/Desktop/org/06-school.org"
+                           "~/Desktop/org/08-calendar.org"
                            "~/Desktop/org/01-today.org"))
   (setq org-startup-indented t
         org-hide-leading-stars t
-        org-pretty-entities t
+        org-pretty-entities nil
         org-startup-folded t
         org-cycle-separator-lines 0
         org-insert-heading-respect-content t
@@ -163,8 +153,15 @@ to tell appearance preferences to get dark mode' 2>/dev/null"))))
         org-list-allow-alphabetical t
         org-agenda-window-setup 'current-window)
 
-  (setq org-todo-keywords
-        '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)" "CANCELLED(c)")))
+ (setq org-todo-keywords
+      '((sequence
+         "TODO(t)"        ; not started
+         "NEXT(n)"        ; actively working
+         "WAIT(w)"        ; blocked
+         "|"
+         "DONE(d)"        ; completed
+         "MISSED(m)"      ; due date passed / not completed
+         "CANCELLED(c)"))) ; intentionally dropped
 
 (setq org-capture-templates
       '(("c" "Capture" entry
@@ -253,12 +250,12 @@ Also inserts on its own line (won't collide with headings)."
 (setq org-refile-targets
       '(("~/Desktop/org/00-refile.org"      :maxlevel . 1)
 	("~/Desktop/org/01-today.org"      :maxlevel . 3)
-	("~/Desktop/org/03-projects.org"      :maxlevel . 2)
-	("~/Desktop/org/04-areas.org"      :maxlevel . 2)
-        ("~/Desktop/org/05-resources.org" :maxlevel . 4)
-	("~/Desktop/org/06-archives.org" :maxlevel . 2)
-	("~/Desktop/org/07-school.org"      :maxlevel . 3)
-	("~/Desktop/org/08-shopping.org"      :maxlevel . 2)))
+	("~/Desktop/org/02-projects.org"      :maxlevel . 2)
+	("~/Desktop/org/03-areas.org"      :maxlevel . 2)
+        ("~/Desktop/org/04-resources.org" :maxlevel . 4)
+	("~/Desktop/org/05-archives.org" :maxlevel . 2)
+	("~/Desktop/org/06-school.org"      :maxlevel . 3)
+	("~/Desktop/org/07-shopping.org"      :maxlevel . 2)))
 
 
 
@@ -353,9 +350,6 @@ Also inserts on its own line (won't collide with headings)."
   (company-minimum-prefix-length 1)
   (company-idle-delay 0.0))
 
-(use-package company-box
-  :hook (company-mode . company-box-mode))
-
 ;;------------------------------------------------------------------------------
 ;; Programming Languages
 ;;------------------------------------------------------------------------------
@@ -440,7 +434,7 @@ Also inserts on its own line (won't collide with headings)."
 
 (setq org-blank-before-new-entry '((heading . nil) (plain-list-item . nil)))
 
-(setq org-hide-emphasis-markers t)
+(setq org-hide-emphasis-markers nil)
 
 (global-set-key (kbd "C-z") #'toggle-frame-maximized)
 
